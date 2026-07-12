@@ -7,6 +7,7 @@ import type {
   TimelineNode,
   FamilyComment,
   VideoClip,
+  MemoryArticle,
 } from "@/types";
 import { seedStories, seedPhotos, seedTimeline, seedChat, uid } from "@/data/seed";
 
@@ -16,6 +17,7 @@ interface AppState {
   chat: ChatMessage[];
   timeline: TimelineNode[];
   videoClips: VideoClip[];
+  memoryArticles: MemoryArticle[];
 
   // 聊天
   addChatMessage: (msg: ChatMessage) => void;
@@ -37,6 +39,9 @@ interface AppState {
   removeVideoClip: (id: string) => void;
   clearVideoClips: () => void;
 
+  // 回忆文章
+  addMemoryArticle: (article: Omit<MemoryArticle, "id" | "createdAt">) => MemoryArticle;
+
   // 重置演示
   resetAll: () => void;
 }
@@ -49,6 +54,7 @@ export const useStore = create<AppState>()(
       chat: seedChat,
       timeline: seedTimeline,
       videoClips: [],
+      memoryArticles: [],
 
       addChatMessage: (msg) => set((s) => ({ chat: [...s.chat, msg] })),
 
@@ -157,6 +163,16 @@ export const useStore = create<AppState>()(
 
       clearVideoClips: () => set({ videoClips: [] }),
 
+      addMemoryArticle: (article) => {
+        const full: MemoryArticle = {
+          ...article,
+          id: uid("article"),
+          createdAt: new Date().toISOString(),
+        };
+        set((s) => ({ memoryArticles: [full, ...s.memoryArticles] }));
+        return full;
+      },
+
       resetAll: () =>
         set({
           stories: seedStories,
@@ -164,6 +180,7 @@ export const useStore = create<AppState>()(
           chat: seedChat,
           timeline: seedTimeline,
           videoClips: [],
+          memoryArticles: [],
         }),
     }),
     {
