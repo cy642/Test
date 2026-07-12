@@ -7,6 +7,8 @@ import {
   Send,
   X,
   Quote,
+  BookOpen,
+  CheckCircle2,
 } from "lucide-react";
 import Layout from "@/components/Layout";
 import SectionTitle from "@/components/SectionTitle";
@@ -91,15 +93,18 @@ export default function Timeline() {
       {/* 时间轴主体 */}
       <div className="mt-10 relative">
         {/* 中央竖线 */}
-        <div className="absolute left-6 md:left-1/2 top-0 bottom-0 w-1 bg-gradient-to-b from-gold-500 via-ochre-500 to-sage-500 rounded-full -translate-x-1/2 opacity-30" />
+        <div className="absolute left-6 md:left-1/2 top-0 bottom-0 w-0.5 bg-gradient-to-b from-gold-400 via-ochre-500 to-sage-600 rounded-full -translate-x-1/2 opacity-60" />
 
         {grouped.length === 0 && (
           <div className="paper-card p-10 text-center">
+            <div className="w-16 h-16 mx-auto rounded-full bg-gold-500/15 flex items-center justify-center mb-4">
+              <BookOpen className="text-ochre-500/60" size={32} />
+            </div>
             <p className="font-display text-2xl text-ink-800">
-              这一阶段还没有记录
+              这里还空空的
             </p>
             <p className="mt-2 text-ink-700/70 font-serif">
-              去「讲故事」或「贴老照片」添加一段回忆吧。
+              每段回忆都值得被记住。去「讲故事」或「贴老照片」，为这里添上第一笔吧。
             </p>
           </div>
         )}
@@ -113,7 +118,7 @@ export default function Timeline() {
                 <div className="relative mb-8 flex items-center gap-4">
                   <div
                     className={cn(
-                      "w-14 h-14 rounded-full bg-gradient-to-br flex items-center justify-center text-2xl shadow-warm z-10",
+                      "w-16 h-16 rounded-full bg-gradient-to-br flex items-center justify-center text-3xl shadow-warm-lg z-10 ring-2 ring-white/50",
                       meta.color,
                     )}
                   >
@@ -171,7 +176,7 @@ export default function Timeline() {
                             {node.title}
                           </h4>
                           {story && (
-                            <p className="mt-2 text-base text-ink-700/80 font-serif line-clamp-2 leading-relaxed">
+                            <p className="mt-2 text-base text-ink-700/80 font-serif line-clamp-2 group-hover:line-clamp-none leading-relaxed transition-all duration-300">
                               {story.content}
                             </p>
                           )}
@@ -241,12 +246,15 @@ function NodeDetailModal({
 }: NodeDetailModalProps) {
   const [author, setAuthor] = useState("");
   const [content, setContent] = useState("");
+  const [justSent, setJustSent] = useState(false);
 
   function submit() {
     if (!author.trim() || !content.trim()) return;
     onComment(author.trim(), content.trim());
     setAuthor("");
     setContent("");
+    setJustSent(true);
+    setTimeout(() => setJustSent(false), 1500);
   }
 
   return (
@@ -255,7 +263,7 @@ function NodeDetailModal({
       onClick={onClose}
     >
       <div
-        className="paper-card max-w-2xl w-full max-h-[88vh] overflow-y-auto scrollbar-thin p-6 md:p-8 animate-fade-up"
+        className="paper-card max-w-2xl w-full max-h-[88vh] overflow-y-auto scrollbar-thin p-6 md:p-8 animate-slide-up"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start gap-4 mb-5">
@@ -386,11 +394,23 @@ function NodeDetailModal({
             />
             <button
               onClick={submit}
-              disabled={!author.trim() || !content.trim()}
-              className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!author.trim() || !content.trim() || justSent}
+              className={cn(
+                "btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed transition-all",
+                justSent && "!bg-sage-500",
+              )}
             >
-              <Send size={18} />
-              寄出留言
+              {justSent ? (
+                <>
+                  <CheckCircle2 size={18} />
+                  已寄出
+                </>
+              ) : (
+                <>
+                  <Send size={18} />
+                  寄出留言
+                </>
+              )}
             </button>
           </div>
         </div>

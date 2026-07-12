@@ -109,6 +109,51 @@ export default {
           "0%": { backgroundPosition: "-200% 0" },
           "100%": { backgroundPosition: "200% 0" },
         },
+        "march": {
+          "0%": { strokeDashoffset: "0" },
+          "100%": { strokeDashoffset: "14" },
+        },
+        "frame-in": {
+          "0%": { opacity: "0", transform: "scale(0.9) rotate(0deg)" },
+          "60%": { opacity: "1", transform: "scale(1.03) rotate(-1.5deg)" },
+          "100%": { opacity: "1", transform: "scale(1) rotate(-2deg)" },
+        },
+        "slide-up": {
+          "0%": { transform: "translateY(100%)", opacity: "0" },
+          "100%": { transform: "translateY(0)", opacity: "1" },
+        },
+        "scan-brightness": {
+          "0%, 100%": { filter: "brightness(1) sepia(0.55) saturate(0.75) contrast(1.08)" },
+          "50%": { filter: "brightness(1.2) sepia(0.55) saturate(0.75) contrast(1.08)" },
+        },
+        "subtitle-fade": {
+          "0%": { opacity: "0", transform: "translateY(8px)" },
+          "15%": { opacity: "1", transform: "translateY(0)" },
+          "85%": { opacity: "1", transform: "translateY(0)" },
+          "100%": { opacity: "0", transform: "translateY(-8px)" },
+        },
+        "hat-wobble": {
+          "0%,100%": { transform: "rotate(-3deg)" },
+          "25%": { transform: "rotate(3deg)" },
+          "50%": { transform: "rotate(-2deg)" },
+          "75%": { transform: "rotate(2deg)" },
+        },
+        "photo-reveal": {
+          "0%": { opacity: "0", filter: "blur(20px)" },
+          "100%": { opacity: "1", filter: "blur(0px)" },
+        },
+        "ripple": {
+          "0%": { transform: "scale(1)", opacity: "0.5" },
+          "100%": { transform: "scale(2.5)", opacity: "0" },
+        },
+        "underline-in": {
+          "0%": { backgroundSize: "0% 2px" },
+          "100%": { backgroundSize: "100% 2px" },
+        },
+        "fade-in-up": {
+          "0%": { opacity: "0", transform: "translateY(8px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
       },
       animation: {
         "fade-up": "fade-up 0.7s cubic-bezier(0.22,1,0.36,1) both",
@@ -118,6 +163,16 @@ export default {
         "wave": "wave 1s ease-in-out infinite",
         "pulse-ring": "pulse-ring 1.6s ease-out infinite",
         "shimmer": "shimmer 2.5s linear infinite",
+        "march": "march 0.6s linear infinite",
+        "frame-in": "frame-in 0.6s cubic-bezier(0.34,1.56,0.64,1) both",
+        "slide-up": "slide-up 0.4s cubic-bezier(0.22,1,0.36,1) both",
+        "scan-brightness": "scan-brightness 2s ease-in-out infinite",
+        "subtitle-fade": "subtitle-fade 3.6s ease-in-out both",
+        "hat-wobble": "hat-wobble 1.2s ease-in-out infinite",
+        "photo-reveal": "photo-reveal 0.8s ease-out both",
+        "ripple": "ripple 1.8s ease-out infinite",
+        "underline-in": "underline-in 0.3s ease-out forwards",
+        "fade-in-up": "fade-in-up 0.6s ease-out both",
       },
     },
   },

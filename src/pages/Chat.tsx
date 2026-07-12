@@ -8,6 +8,8 @@ import {
   Frown,
   Smile,
   Wind,
+  Sparkles,
+  CheckCircle2,
 } from "lucide-react";
 import Layout from "@/components/Layout";
 import Mascot from "@/components/Mascot";
@@ -33,6 +35,14 @@ const emotionMeta: Record<Emotion, { icon: typeof Heart; label: string; color: s
 
 const STAGES: LifeStage[] = ["童年", "求学", "工作", "家庭", "旅行", "晚年"];
 
+// AI 气泡情绪装饰
+const emotionDecor: Record<Emotion, { icon: typeof Heart; text?: string }> = {
+  happy: { icon: Sparkles, text: undefined },
+  nostalgic: { icon: Heart, text: undefined },
+  sad: { icon: Frown, text: "抱抱您，我在听" },
+  neutral: { icon: Wind, text: undefined },
+};
+
 export default function Chat() {
   const chat = useStore((s) => s.chat);
   const addChatMessage = useStore((s) => s.addChatMessage);
@@ -43,9 +53,12 @@ export default function Chat() {
   const [thinking, setThinking] = useState(false);
   const [streaming, setStreaming] = useState<string | null>(null);
   const [saveTarget, setSaveTarget] = useState<string | null>(null);
+  const [savedAnim, setSavedAnim] = useState<string | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  const isListening = thinking || streaming !== null;
 
   // 自动滚到底
   useEffect(() => {
@@ -132,6 +145,8 @@ export default function Chat() {
   function handleSave(msgId: string, stage: LifeStage) {
     saveChatAsStory(msgId, stage);
     setSaveTarget(null);
+    setSavedAnim(msgId);
+    setTimeout(() => setSavedAnim(null), 1800);
   }
 
   return (
@@ -141,14 +156,31 @@ export default function Chat() {
         <div className="paper-card overflow-hidden flex flex-col h-[78vh] min-h-[560px]">
           {/* 头部 */}
           <div className="flex items-center gap-4 px-6 py-4 border-b border-ochre-500/15 bg-paper-50/50">
-            <Mascot size={52} talking={thinking || streaming !== null} />
+            <Mascot size={52} talking={isListening} />
             <div className="flex-1">
               <h2 className="font-display text-2xl text-ink-800">时光信使 · 小光</h2>
-              <p className="text-sm text-ink-700/70">
-                {thinking || streaming !== null
-                  ? "正在听您说，慢慢来…"
-                  : "在线 · 随时陪您聊"}
-              </p>
+              <div className="relative h-5 overflow-hidden">
+                <p
+                  className={cn(
+                    "absolute inset-x-0 text-sm transition-all duration-500",
+                    isListening
+                      ? "translate-y-0 opacity-100 text-ochre-600"
+                      : "-translate-y-5 opacity-0",
+                  )}
+                >
+                  正在听您说…
+                </p>
+                <p
+                  className={cn(
+                    "absolute inset-x-0 text-sm transition-all duration-500 text-ink-700/70",
+                    isListening
+                      ? "translate-y-5 opacity-0"
+                      : "translate-y-0 opacity-100",
+                  )}
+                >
+                  在线 · 随时陪您聊
+                </p>
+              </div>
             </div>
             <button
               onClick={clearChat}
@@ -173,6 +205,7 @@ export default function Chat() {
                 saveStagePickerOpen={saveTarget === msg.id}
                 onPickStage={(stage) => handleSave(msg.id, stage)}
                 onClosePicker={() => setSaveTarget(null)}
+                showSavedAnim={savedAnim === msg.id}
               />
             ))}
 
@@ -202,18 +235,29 @@ export default function Chat() {
 
           {/* 输入区 */}
           <div className="border-t border-ochre-500/15 bg-paper-50/50 px-4 md:px-6 py-4">
-            {/* 话题气泡 */}
-            <div className="flex items-center gap-2 mb-3 overflow-x-auto scrollbar-thin pb-1">
-              <span className="shrink-0 text-sm text-ink-700/70 inline-flex items-center gap-1">
+            {/* 小光正在听状态条 */}
+            {isListening && (
+              <div className="flex items-center gap-2 mb-3 px-1 animate-fade-up">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-ochre-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-ochre-500" />
+                </span>
+                <span className="text-sm text-ochre-600 font-serif">小光正在听…</span>
+              </div>
+            )}
+
+            {/* 话题气泡：3个一组换行 */}
+            <div className="flex flex-wrap gap-2 mb-3">
+              <span className="w-full flex items-center gap-1 text-sm text-ink-700/70 mb-0.5">
                 <Lightbulb size={16} className="text-gold-500" />
                 试试：
               </span>
-              {SUGGESTED_TOPICS.map((t) => (
+              {SUGGESTED_TOPICS.map((t, i) => (
                 <button
                   key={t}
                   onClick={() => send(t)}
-                  disabled={thinking || streaming !== null}
-                  className="shrink-0 text-base px-3 py-1.5 rounded-full bg-gold-500/15 text-ochre-600 hover:bg-gold-500/25 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-serif"
+                  disabled={isListening}
+                  className="text-base px-3 py-1.5 rounded-full bg-gold-500/15 text-ochre-600 hover:bg-gold-500/25 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-serif"
                 >
                   {t}
                 </button>
@@ -232,11 +276,11 @@ export default function Chat() {
                 placeholder="慢慢说，小光在听…（按 Enter 发送）"
                 rows={2}
                 className="input-warm resize-none flex-1 !text-lg leading-relaxed"
-                disabled={thinking || streaming !== null}
+                disabled={isListening}
               />
               <button
                 onClick={() => send()}
-                disabled={!input.trim() || thinking || streaming !== null}
+                disabled={!input.trim() || isListening}
                 className="btn-primary !px-5 self-stretch disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Send size={22} />
@@ -246,8 +290,8 @@ export default function Chat() {
           </div>
         </div>
 
-        {/* 右：使用提示 */}
-        <aside className="space-y-5">
+        {/* 右：使用提示 - 移动端隐藏 */}
+        <aside className="hidden lg:block space-y-5">
           <SectionTitle
             eyebrow="陪聊小贴士"
             title="怎么和小光聊天？"
@@ -303,6 +347,7 @@ interface MessageBubbleProps {
   saveStagePickerOpen: boolean;
   onPickStage: (stage: LifeStage) => void;
   onClosePicker: () => void;
+  showSavedAnim: boolean;
 }
 
 function MessageBubble({
@@ -311,9 +356,11 @@ function MessageBubble({
   saveStagePickerOpen,
   onPickStage,
   onClosePicker,
+  showSavedAnim,
 }: MessageBubbleProps) {
   const isAi = msg.role === "ai";
   const emo = msg.emotion ? emotionMeta[msg.emotion] : null;
+  const decor = msg.emotion ? emotionDecor[msg.emotion] : null;
 
   return (
     <div
@@ -332,14 +379,34 @@ function MessageBubble({
       <div className={cn("max-w-[78%]", !isAi && "flex flex-col items-end")}>
         <div
           className={cn(
-            "px-5 py-3.5 rounded-3xl shadow-warm-inset font-serif text-lg leading-relaxed whitespace-pre-wrap",
+            "relative px-5 py-3.5 rounded-3xl shadow-warm-inset font-serif text-lg leading-relaxed whitespace-pre-wrap",
             isAi
               ? "bg-paper-50 text-ink-800 rounded-bl-sm border border-ochre-500/10"
               : "bg-gradient-to-br from-gold-400 to-ochre-500 text-paper-50 rounded-br-sm",
             msg.savedAsStory && !isAi && "ring-2 ring-sage-500/60",
           )}
         >
+          {/* AI 气泡情绪装饰 */}
+          {isAi && decor && (
+            <span
+              className={cn(
+                "absolute -top-2 -right-2 flex items-center justify-center w-7 h-7 rounded-full text-sm",
+                msg.emotion === "happy" && "bg-gold-500/20 text-gold-600",
+                msg.emotion === "nostalgic" && "bg-ochre-500/20 text-ochre-600",
+                msg.emotion === "sad" && "bg-sage-500/20 text-sage-600",
+                msg.emotion === "neutral" && "bg-ink-500/10 text-ink-700",
+              )}
+            >
+              <decor.icon size={14} />
+            </span>
+          )}
           {msg.content}
+          {/* 难过情绪安慰语 */}
+          {isAi && msg.emotion === "sad" && decor?.text && (
+            <span className="block mt-2 text-sm text-sage-600/80 italic">
+              {decor.text}
+            </span>
+          )}
         </div>
 
         {/* 元信息行 */}
@@ -362,17 +429,28 @@ function MessageBubble({
           {!isAi && !msg.savedAsStory && (
             <button
               onClick={onSave}
-              className="inline-flex items-center gap-1 text-ochre-600 hover:text-ochre-700 transition-colors"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-ochre-500/10 text-ochre-700 hover:bg-ochre-500/20 transition-colors font-medium"
               title="把这段话收藏成故事"
             >
-              <Bookmark size={14} />
+              <Bookmark size={13} />
               收藏成故事
             </button>
           )}
           {msg.savedAsStory && (
-            <span className="inline-flex items-center gap-1 text-sage-600">
-              <Bookmark size={14} />
-              已收入档案
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 transition-all duration-300",
+                showSavedAnim
+                  ? "text-green-600 scale-110"
+                  : "text-sage-600",
+              )}
+            >
+              {showSavedAnim ? (
+                <CheckCircle2 size={14} className="animate-bounce" />
+              ) : (
+                <Bookmark size={14} />
+              )}
+              {showSavedAnim ? "已收藏" : "已收入档案"}
             </span>
           )}
         </div>

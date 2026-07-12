@@ -11,7 +11,7 @@ export default function Layout({ children, contained = true }: LayoutProps) {
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
-      <main className="flex-1">
+      <main className="flex-1 pb-20 md:pb-0">
         {contained ? (
           <div className="container max-w-7xl mx-auto px-4 md:px-8 py-8 md:py-12">
             {children}

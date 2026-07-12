@@ -11,6 +11,11 @@ interface MascotProps {
  * AI 信使吉祥物：一只衔着信的小鸟"小光"
  */
 export default function Mascot({ size = 64, className, talking = false }: MascotProps) {
+  const hatW = size * 0.5;
+  const hatH = size * 0.18;
+  const brimW = size * 0.65;
+  const brimH = size * 0.06;
+
   return (
     <div
       className={cn("relative inline-flex items-center justify-center", className)}
@@ -21,6 +26,45 @@ export default function Mascot({ size = 64, className, talking = false }: Mascot
         className="absolute inset-0 rounded-full bg-gold-500/30 blur-xl"
         aria-hidden
       />
+      {/* 信差帽 */}
+      <div
+        className={cn(
+          "absolute z-10 origin-bottom",
+          talking && "animate-hat-wobble",
+        )}
+        style={{
+          top: -hatH - brimH + size * 0.08,
+          left: "50%",
+          transform: `translateX(-50%)`,
+        }}
+        aria-hidden
+      >
+        {/* 帽檐 */}
+        <div
+          className="absolute left-1/2 -translate-x-1/2 rounded-sm bg-ochre-800"
+          style={{
+            width: brimW,
+            height: brimH,
+            bottom: 0,
+          }}
+        />
+        {/* 帽身 */}
+        <div
+          className="relative rounded-t-md bg-ochre-700 border-b-2 border-ochre-800"
+          style={{
+            width: hatW,
+            height: hatH,
+            marginLeft: (brimW - hatW) / 2,
+          }}
+        >
+          {/* 帽带 */}
+          <div
+            className="absolute bottom-0 left-0 right-0 bg-gold-500"
+            style={{ height: size * 0.04 }}
+          />
+        </div>
+      </div>
+
       {/* 主体 */}
       <div
         className={cn(

@@ -135,8 +135,28 @@ export default function Photos() {
               onDrop={onDrop}
               onDragOver={(e) => e.preventDefault()}
               onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-ochre-500/40 rounded-3xl py-16 px-6 text-center cursor-pointer hover:bg-paper-200/40 hover:border-ochre-500 transition-all group"
+              className="relative rounded-3xl py-16 px-6 text-center cursor-pointer hover:bg-paper-200/40 transition-all group"
             >
+              {/* 动画虚线边框 — dash-offset 行军蚁效果 */}
+              <svg
+                className="absolute inset-0 w-full h-full pointer-events-none"
+                style={{ overflow: "visible" }}
+              >
+                <rect
+                  x="0"
+                  y="0"
+                  width="100%"
+                  height="100%"
+                  rx="24"
+                  ry="24"
+                  fill="none"
+                  stroke="rgba(181,103,62,0.5)"
+                  strokeWidth="2"
+                  strokeDasharray="8 6"
+                  vectorEffect="non-scaling-stroke"
+                  className="animate-march"
+                />
+              </svg>
               <div className="w-20 h-20 mx-auto rounded-full bg-gold-500/15 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                 <Upload className="text-ochre-600" size={36} />
               </div>
@@ -151,7 +171,7 @@ export default function Photos() {
               </p>
             </div>
           ) : (
-            <div className="flex flex-col items-center gap-4">
+            <div className="flex flex-col items-center gap-4 animate-frame-in">
               <PhotoFrame
                 src={imageUrl}
                 alt={fileName || "老照片"}
@@ -224,12 +244,12 @@ export default function Photos() {
                   <img
                     src={imageUrl}
                     alt="识别中"
-                    className="w-full h-full object-cover filter-vintage-strong opacity-80"
+                    className="w-full h-full object-cover filter-vintage-strong opacity-80 animate-scan-brightness"
                   />
                 )}
                 {/* 扫描线 */}
                 <div
-                  className="absolute left-0 right-0 h-1 bg-gradient-to-r from-transparent via-gold-500 to-transparent shadow-[0_0_20px_4px_rgba(217,164,65,0.5)]"
+                  className="absolute left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-gold-500 to-transparent shadow-[0_0_20px_4px_rgba(217,164,65,0.5)]"
                   style={{
                     top: `${progress}%`,
                     transition: "top 60ms linear",
@@ -283,17 +303,35 @@ export default function Photos() {
               共 {photos.length} 张
             </span>
           </div>
-          <div className="flex flex-wrap gap-6 justify-center md:justify-start">
-            {photos.slice(0, 8).map((p, i) => (
-              <PhotoFrame
-                key={p.id}
-                src={p.url}
-                alt={p.aiDescription}
-                caption={p.era}
-                rotate={i % 2 === 0 ? -3 : 2.5}
-                className="w-40 md:w-48"
-              />
-            ))}
+          <div className="flex flex-wrap gap-6 justify-center md:justify-start items-start">
+            {photos.slice(0, 8).map((p, i) => {
+              const scatter = [
+                { rotate: -5, y: 0 },
+                { rotate: 3.5, y: 12 },
+                { rotate: -2, y: 4 },
+                { rotate: 4.5, y: 16 },
+                { rotate: -3.5, y: 8 },
+                { rotate: 2, y: 20 },
+                { rotate: -4, y: 6 },
+                { rotate: 1.5, y: 14 },
+              ];
+              const s = scatter[i % scatter.length];
+              return (
+                <div
+                  key={p.id}
+                  style={{ marginTop: s.y, transform: `rotate(${s.rotate}deg)` }}
+                  className="transition-transform duration-300 hover:rotate-0 hover:scale-105"
+                >
+                  <PhotoFrame
+                    src={p.url}
+                    alt={p.aiDescription}
+                    caption={p.era}
+                    rotate={0}
+                    className="w-40 md:w-48"
+                  />
+                </div>
+              );
+            })}
           </div>
         </section>
       )}
@@ -327,12 +365,12 @@ function PhotoResultCard({
         </p>
       </div>
 
-      <div className="paper-card !shadow-warm-inset p-4 bg-gold-500/5">
+      <div className="paper-card !shadow-warm-inset p-5 bg-gold-500/10 border border-gold-500/20">
         <span className="eyebrow mb-1 text-gold-600">
           <Camera size={14} />
           年代推测
         </span>
-        <p className="font-display text-2xl text-ochre-600">{analysis.era}</p>
+        <p className="font-display text-3xl md:text-4xl text-ochre-600 tracking-wide mt-1">{analysis.era}</p>
       </div>
 
       <div>

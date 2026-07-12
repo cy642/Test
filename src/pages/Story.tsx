@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
 import {
   Mic,
   Square,
@@ -7,6 +7,7 @@ import {
   RefreshCw,
   BookOpen,
   Quote,
+  Check,
 } from "lucide-react";
 import Layout from "@/components/Layout";
 import SectionTitle from "@/components/SectionTitle";
@@ -36,21 +37,47 @@ const STAGE_COLORS: Record<LifeStage, string> = {
   晚年: "bg-paper-300 text-ink-700",
 };
 
+const THINKING_MESSAGES = [
+  "正在阅读您的文字…",
+  "寻找最动人的细节…",
+  "为您拟一个好标题…",
+];
+
+// 9条声波条的基础高度（px），模拟更自然的随机
+const BAR_HEIGHTS = [14, 20, 10, 24, 16, 22, 12, 18, 26];
+
 export default function Story() {
   const addStory = useStore((s) => s.addStory);
 
   const [text, setText] = useState("");
   const [recording, setRecording] = useState(false);
   const [recSeconds, setRecSeconds] = useState(0);
-  const [phase, setPhase] = useState<"idle" | "thinking" | "streaming" | "done">(
+  const [phase, setPhase] = useState<"idle" | "thinking" | "streaming" | "transitioning" | "done">(
     "idle",
   );
   const [streamedText, setStreamedText] = useState("");
   const [result, setResult] = useState<StructuredStory | null>(null);
   const [saved, setSaved] = useState(false);
+  const [thinkingIndex, setThinkingIndex] = useState(0);
 
   const abortRef = useRef<AbortController | null>(null);
   const recTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const thinkingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // 思考阶段文字轮播
+  useEffect(() => {
+    if (phase === "thinking") {
+      setThinkingIndex(0);
+      thinkingTimerRef.current = setInterval(() => {
+        setThinkingIndex((i) => (i + 1) % THINKING_MESSAGES.length);
+      }, 1200);
+    } else {
+      if (thinkingTimerRef.current) clearInterval(thinkingTimerRef.current);
+    }
+    return () => {
+      if (thinkingTimerRef.current) clearInterval(thinkingTimerRef.current);
+    };
+  }, [phase]);
 
   // 模拟录音
   function toggleRecord() {
@@ -89,7 +116,7 @@ export default function Story() {
       formatStoryForStream(structured),
       {
         onChunk: (partial) => setStreamedText(partial),
-        onDone: () => setPhase("done"),
+        onDone: () => setPhase("transitioning"),
         signal: abortRef.current.signal,
       },
       { speed: 22, jitter: 14 },
@@ -104,6 +131,14 @@ export default function Story() {
     setPhase("idle");
     setSaved(false);
   }
+
+  // 流式→卡片过渡：短暂延迟后切换到 done
+  useEffect(() => {
+    if (phase === "transitioning") {
+      const t = setTimeout(() => setPhase("done"), 800);
+      return () => clearTimeout(t);
+    }
+  }, [phase]);
 
   function save() {
     if (!result) return;
@@ -132,10 +167,13 @@ export default function Story() {
             <h3 className="font-display text-2xl text-ink-800">您的故事</h3>
             <button
               onClick={() => setText(SAMPLE_PROMPT)}
-              className="text-base text-ochre-600 hover:text-ochre-700 inline-flex items-center gap-1 font-serif"
+              className="group text-base text-ochre-600 hover:text-ochre-700 inline-flex items-center gap-1 font-serif relative"
             >
               <Sparkles size={16} />
-              看个例子
+              <span className="relative">
+                看个例子
+                <span className="absolute left-0 bottom-0 w-full h-[2px] bg-ochre-600 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left" />
+              </span>
             </button>
           </div>
 
@@ -162,7 +200,11 @@ export default function Story() {
                 title={recording ? "停止录音" : "开始录音"}
               >
                 {recording && (
-                  <span className="absolute inset-0 rounded-full border-2 border-ochre-500 animate-pulse-ring" />
+                  <>
+                    <span className="absolute inset-0 rounded-full border-2 border-ochre-500 animate-pulse-ring" />
+                    <span className="absolute inset-0 rounded-full border-2 border-ochre-400/60 animate-ripple" style={{ animationDelay: "0.6s" }} />
+                    <span className="absolute inset-0 rounded-full border border-ochre-400/40 animate-ripple" style={{ animationDelay: "1.2s" }} />
+                  </>
                 )}
                 {recording ? <Square size={22} /> : <Mic size={26} />}
               </button>
@@ -170,16 +212,16 @@ export default function Story() {
                 {recording ? (
                   <div className="flex items-center gap-3">
                     {/* 声波 */}
-                    <div className="flex items-end gap-1 h-6">
-                      {Array.from({ length: 7 }).map((_, i) => (
+                    <div className="flex items-end gap-1 h-7">
+                      {BAR_HEIGHTS.map((h, i) => (
                         <span
                           key={i}
                           className="w-1 bg-ochre-500 rounded-full"
                           style={{
-                            height: "100%",
+                            height: `${h}px`,
                             transformOrigin: "bottom",
                             animation: "wave 0.8s ease-in-out infinite",
-                            animationDelay: `${i * 0.1}s`,
+                            animationDelay: `${i * 0.09}s`,
                           }}
                         />
                       ))}
@@ -260,25 +302,35 @@ export default function Story() {
               <p className="text-lg text-ink-700/80 font-serif">
                 小光正在读您的故事…
               </p>
-              <div className="flex items-center gap-2 text-ink-700/60">
+              <div className="h-6 flex items-center gap-2 text-ink-700/60">
                 <TypingDots />
-                <span className="text-sm">寻找最动人的细节</span>
+                <span key={thinkingIndex} className="text-sm animate-fade-in">
+                  {THINKING_MESSAGES[thinkingIndex]}
+                </span>
               </div>
             </div>
           )}
 
-          {/* streaming / done */}
-          {(phase === "streaming" || phase === "done") && result && (
+          {/* streaming / transitioning / done */}
+          {(phase === "streaming" || phase === "transitioning" || phase === "done") && result && (
             <div className="space-y-4">
-              {phase === "streaming" ? (
+              {(phase === "streaming" || phase === "transitioning") ? (
                 // 流式输出原始文本
-                <pre className="font-serif text-lg text-ink-800 leading-relaxed whitespace-pre-wrap font-[inherit]">
+                <pre className={cn(
+                  "font-serif text-lg text-ink-800 leading-relaxed whitespace-pre-wrap font-[inherit] transition-all duration-700",
+                  phase === "transitioning" && "opacity-0 translate-y-2",
+                )}>
                   {streamedText}
-                  <span className="inline-block w-1 h-5 ml-0.5 bg-ochre-500/70 animate-pulse align-middle" />
+                  {phase === "streaming" && (
+                    <span className="inline-block w-1 h-5 ml-0.5 bg-ochre-500/70 animate-pulse align-middle" />
+                  )}
                 </pre>
-              ) : (
-                // 完成后用结构化卡片展示
-                <StoryResultCard result={result} saved={saved} onSave={save} onReset={reset} />
+              ) : null}
+              {phase === "done" && (
+                // 完成后用结构化卡片展示（带渐入动画）
+                <div className="animate-fade-up">
+                  <StoryResultCard result={result} saved={saved} onSave={save} onReset={reset} />
+                </div>
               )}
             </div>
           )}
@@ -303,7 +355,7 @@ function StoryResultCard({
   onReset: () => void;
 }) {
   return (
-    <div className="animate-fade-up space-y-5">
+    <div className="space-y-5">
       <div>
         <span className="eyebrow mb-2">
           <Quote size={14} />
@@ -342,7 +394,10 @@ function StoryResultCard({
           {result.content.split("\n\n").map((p, i) => (
             <p
               key={i}
-              className="font-serif text-lg text-ink-800 leading-relaxed first-letter:font-display first-letter:text-5xl first-letter:text-ochre-600 first-letter:mr-2 first-letter:float-left first-letter:leading-none"
+              className={cn(
+                "font-serif text-lg text-ink-800 leading-relaxed",
+                i === 0 && "first-letter:font-display first-letter:text-6xl first-letter:text-ochre-600 first-letter:mr-3 first-letter:float-left first-letter:leading-none first-letter:font-bold",
+              )}
             >
               {p}
             </p>
@@ -352,8 +407,10 @@ function StoryResultCard({
 
       <div className="pt-5 border-t border-ochre-500/15 flex items-center gap-3 flex-wrap">
         {saved ? (
-          <span className="inline-flex items-center gap-2 text-sage-600 font-serif text-lg">
-            <Save size={20} />
+          <span className="inline-flex items-center gap-2 text-sage-600 font-serif text-lg animate-fade-in-up">
+            <span className="w-6 h-6 rounded-full bg-sage-500/20 flex items-center justify-center">
+              <Check size={14} className="text-sage-600" strokeWidth={3} />
+            </span>
             已收入家庭档案，可在时间轴查看
           </span>
         ) : (

@@ -10,6 +10,8 @@ import {
   RotateCcw,
   Image as ImageIcon,
   BookOpen,
+  Redo2,
+  ArrowRight,
 } from "lucide-react";
 import Layout from "@/components/Layout";
 import SectionTitle from "@/components/SectionTitle";
@@ -18,6 +20,13 @@ import { useStore } from "@/store/useStore";
 import { generateVideo, VIDEO_SUBTITLES } from "@/lib/ai";
 import { cn } from "@/lib/utils";
 import type { VideoClip } from "@/types";
+
+const GENERATE_STAGES = [
+  { icon: ImageIcon, label: "选照片" },
+  { icon: BookOpen, label: "写旁白" },
+  { icon: Music, label: "配音乐" },
+  { icon: Film, label: "合成画面" },
+];
 
 export default function Video() {
   const photos = useStore((s) => s.photos);
@@ -31,9 +40,14 @@ export default function Video() {
   const [stageText, setStageText] = useState("");
   const [playing, setPlaying] = useState(false);
   const [subIdx, setSubIdx] = useState(0);
+  const [finished, setFinished] = useState(false);
 
   const abortRef = useRef<AbortController | null>(null);
   const subTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // 根据 progress 算出当前阶段索引
+  const currentStageIdx =
+    progress <= 25 ? 0 : progress <= 50 ? 1 : progress <= 75 ? 2 : 3;
 
   useEffect(() => () => {
     abortRef.current?.abort();
@@ -44,6 +58,7 @@ export default function Video() {
     if (clips.length === 0 || phase === "generating") return;
     setPhase("generating");
     setProgress(0);
+    setFinished(false);
     abortRef.current = new AbortController();
     await generateVideo({
       onProgress: (p, stage) => {
@@ -61,8 +76,13 @@ export default function Video() {
   // 播放时字幕轮播
   useEffect(() => {
     if (phase === "done" && playing) {
+      setFinished(false);
       subTimerRef.current = setInterval(() => {
-        setSubIdx((i) => (i + 1) % VIDEO_SUBTITLES.length);
+        setSubIdx((prev) => {
+          const next = (prev + 1) % VIDEO_SUBTITLES.length;
+          if (next === 0) setFinished(true);
+          return next;
+        });
       }, 3600);
     } else {
       if (subTimerRef.current) clearInterval(subTimerRef.current);
@@ -72,12 +92,19 @@ export default function Video() {
     };
   }, [phase, playing]);
 
+  function replay() {
+    setSubIdx(0);
+    setPlaying(true);
+    setFinished(false);
+  }
+
   function reset() {
     abortRef.current?.abort();
     setPhase("idle");
     setProgress(0);
     setPlaying(false);
     setSubIdx(0);
+    setFinished(false);
     clearClips();
   }
 
@@ -105,9 +132,15 @@ export default function Video() {
               </span>
             </div>
             {photos.length === 0 ? (
-              <p className="text-base text-ink-700/60 font-serif py-4 text-center">
-                还没有照片，先去「贴张老照片」收录一些吧。
-              </p>
+              <div className="flex flex-col items-center gap-3 py-6 text-center">
+                <ImageIcon size={32} className="text-ink-700/30" />
+                <p className="text-base text-ink-700/60 font-serif">
+                  还没有照片，先去「贴张老照片」收录一些吧。
+                </p>
+                <p className="text-sm text-ink-700/40 font-serif">
+                  照片是视频最温暖的素材，收录几张后回来挑选 ✦
+                </p>
+              </div>
             ) : (
               <div className="grid grid-cols-3 gap-3">
                 {photos.map((p) => {
@@ -125,10 +158,10 @@ export default function Video() {
                       key={p.id}
                       onClick={() => toggleClip(clipData)}
                       className={cn(
-                        "relative aspect-square rounded-xl overflow-hidden border-2 transition-all",
+                        "relative aspect-square rounded-xl overflow-hidden border-2 transition-all duration-300",
                         selected
-                          ? "border-ochre-500 ring-2 ring-ochre-500/30"
-                          : "border-transparent hover:border-ochre-500/40",
+                          ? "border-ochre-500 ring-2 ring-ochre-500/30 scale-[1.03] shadow-warm"
+                          : "border-ochre-500/15 opacity-70 grayscale-[30%] hover:opacity-100 hover:grayscale-0 hover:border-ochre-500/40",
                       )}
                     >
                       <img
@@ -136,13 +169,23 @@ export default function Video() {
                         alt={p.era}
                         className="w-full h-full object-cover filter-vintage"
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-ink-900/60 to-transparent" />
+                      <div className={cn(
+                        "absolute inset-0 transition-opacity duration-300",
+                        selected
+                          ? "bg-gradient-to-t from-ink-900/60 to-transparent"
+                          : "bg-ink-900/20 hover:bg-gradient-to-t hover:from-ink-900/60 hover:to-transparent",
+                      )} />
                       <span className="absolute bottom-1 left-1 right-1 text-[10px] text-paper-50 font-serif text-center">
                         {p.era}
                       </span>
                       {selected && (
                         <span className="absolute top-1 right-1 w-5 h-5 rounded-full bg-ochre-500 text-paper-50 flex items-center justify-center">
                           <Check size={12} strokeWidth={3} />
+                        </span>
+                      )}
+                      {!selected && (
+                        <span className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                          <span className="w-7 h-7 rounded-full border-2 border-paper-50/80 bg-ink-900/30" />
                         </span>
                       )}
                     </button>
@@ -161,48 +204,63 @@ export default function Video() {
                 已选 {selectedStories.length}
               </span>
             </div>
-            <div className="space-y-2 max-h-72 overflow-y-auto scrollbar-thin pr-1">
-              {stories.map((s) => {
-                const selected = clips.some((c) => c.refId === s.id);
-                const clipData: Omit<VideoClip, "id"> = {
-                  type: "story",
-                  refId: s.id,
-                  title: s.title,
-                  subtitle: s.content.slice(0, 30) + "…",
-                };
-                return (
-                  <button
-                    key={s.id}
-                    onClick={() => toggleClip(clipData)}
-                    className={cn(
-                      "w-full text-left p-3 rounded-2xl border transition-all flex gap-3 items-start",
-                      selected
-                        ? "bg-ochre-500/10 border-ochre-500"
-                        : "bg-paper-50/60 border-ochre-500/15 hover:border-ochre-500/40",
-                    )}
-                  >
-                    <div
+            {stories.length === 0 ? (
+              <div className="flex flex-col items-center gap-3 py-6 text-center">
+                <BookOpen size={32} className="text-ink-700/30" />
+                <p className="text-base text-ink-700/60 font-serif">
+                  还没有故事，先去「讲段故事」记录一些吧。
+                </p>
+                <p className="text-sm text-ink-700/40 font-serif">
+                  故事是旁白的灵魂，记录几段后回来挑选 ✦
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-72 overflow-y-auto scrollbar-thin pr-1">
+                {stories.map((s) => {
+                  const selected = clips.some((c) => c.refId === s.id);
+                  const clipData: Omit<VideoClip, "id"> = {
+                    type: "story",
+                    refId: s.id,
+                    title: s.title,
+                    subtitle: s.content.slice(0, 30) + "…",
+                  };
+                  return (
+                    <button
+                      key={s.id}
+                      onClick={() => toggleClip(clipData)}
                       className={cn(
-                        "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5",
+                        "w-full text-left p-3 rounded-2xl border transition-all duration-300 flex gap-3 items-start",
                         selected
-                          ? "bg-ochre-500 border-ochre-500 text-paper-50"
-                          : "border-ochre-500/40",
+                          ? "bg-ochre-500/10 border-ochre-500 shadow-warm"
+                          : "bg-paper-50/60 border-ochre-500/15 opacity-60 hover:opacity-100 hover:border-ochre-500/40",
                       )}
                     >
-                      {selected && <Check size={12} strokeWidth={3} />}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="font-display text-lg text-ink-800 truncate">
-                        {s.title}
+                      <div
+                        className={cn(
+                          "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 transition-colors duration-300",
+                          selected
+                            ? "bg-ochre-500 border-ochre-500 text-paper-50"
+                            : "border-ochre-500/30",
+                        )}
+                      >
+                        {selected && <Check size={12} strokeWidth={3} />}
                       </div>
-                      <div className="text-sm text-ink-700/70 font-serif line-clamp-2 mt-0.5">
-                        {s.content}
+                      <div className="min-w-0">
+                        <div className={cn(
+                          "font-display text-lg transition-colors duration-300 truncate",
+                          selected ? "text-ink-800" : "text-ink-700/60",
+                        )}>
+                          {s.title}
+                        </div>
+                        <div className="text-sm text-ink-700/70 font-serif line-clamp-2 mt-0.5">
+                          {s.content}
+                        </div>
                       </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-3 flex-wrap">
@@ -245,6 +303,9 @@ export default function Video() {
               <div className="absolute inset-0 flex flex-col items-center justify-center text-paper-50/70 gap-4">
                 <Film size={48} className="opacity-60" />
                 <p className="font-serif text-lg">挑选素材后，视频会在这里生成</p>
+                <p className="font-serif text-sm text-paper-50/40 max-w-xs text-center">
+                  从左边选择几张照片和几段故事，小光会为您制作一段温馨的回忆短片
+                </p>
               </div>
             )}
 
@@ -261,6 +322,41 @@ export default function Video() {
                   </div>
                 </div>
                 <p className="font-serif text-lg text-center">{stageText}</p>
+                {/* 四阶段指示器 */}
+                <div className="flex items-center gap-2 mt-1">
+                  {GENERATE_STAGES.map((stage, idx) => {
+                    const StageIcon = stage.icon;
+                    const isActive = idx === currentStageIdx;
+                    const isDone = idx < currentStageIdx;
+                    return (
+                      <div key={stage.label} className="flex items-center gap-2">
+                        <div
+                          className={cn(
+                            "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-serif transition-all duration-500",
+                            isActive
+                              ? "bg-gold-500/30 text-gold-300 scale-110"
+                              : isDone
+                                ? "bg-sage-600/20 text-sage-300"
+                                : "bg-paper-50/10 text-paper-50/30",
+                          )}
+                        >
+                          {isDone ? (
+                            <Check size={12} strokeWidth={3} />
+                          ) : (
+                            <StageIcon size={12} />
+                          )}
+                          <span>{stage.label}</span>
+                        </div>
+                        {idx < GENERATE_STAGES.length - 1 && (
+                          <ArrowRight size={12} className={cn(
+                            "transition-colors duration-500",
+                            isDone ? "text-sage-300" : "text-paper-50/20",
+                          )} />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
                 <div className="w-full max-w-xs h-2 rounded-full bg-paper-50/20 overflow-hidden">
                   <div
                     className="h-full bg-gradient-to-r from-gold-400 to-ochre-500 transition-all duration-150"
@@ -317,15 +413,40 @@ export default function Video() {
                   </span>
                 </div>
 
-                {/* 字幕 */}
+                {/* 字幕（淡入淡出过渡） */}
                 <div className="absolute bottom-16 left-0 right-0 px-8 text-center">
                   <p
                     key={subIdx}
-                    className="font-display text-2xl md:text-3xl text-paper-50 text-shadow-warm animate-fade-in leading-relaxed text-balance"
+                    className="font-display text-2xl md:text-3xl text-paper-50 text-shadow-warm leading-relaxed text-balance animate-subtitle-fade"
                   >
                     {VIDEO_SUBTITLES[subIdx]}
                   </p>
                 </div>
+
+                {/* 播放完成遮罩 */}
+                {finished && (
+                  <div className="absolute inset-0 bg-ink-900/60 flex flex-col items-center justify-center gap-5 animate-fade-in z-10">
+                    <p className="font-display text-2xl text-paper-50 text-shadow-warm">
+                      播放完毕
+                    </p>
+                    <div className="flex items-center gap-4">
+                      <button
+                        onClick={replay}
+                        className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-paper-50 text-ink-900 font-serif font-semibold text-base shadow-warm hover:scale-105 transition-transform"
+                      >
+                        <Redo2 size={18} />
+                        重播
+                      </button>
+                      <button
+                        onClick={reset}
+                        className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-ochre-500 text-paper-50 font-serif font-semibold text-base shadow-warm hover:scale-105 transition-transform"
+                      >
+                        <Sparkles size={18} />
+                        再做一段
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* 控制条 */}
                 <div className="absolute bottom-0 left-0 right-0 px-4 py-3 bg-gradient-to-t from-ink-900/90 to-transparent flex items-center gap-3">
@@ -354,6 +475,10 @@ export default function Video() {
           {/* 操作行 */}
           {phase === "done" && (
             <div className="mt-5 flex items-center gap-3 flex-wrap animate-fade-up">
+              <button onClick={replay} className="btn-ghost">
+                <Redo2 size={18} />
+                重播
+              </button>
               <button onClick={reset} className="btn-ghost">
                 <RotateCcw size={18} />
                 再做一段

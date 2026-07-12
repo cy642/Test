@@ -12,6 +12,7 @@ interface PhotoFrameProps {
 
 /**
  * 老相册风格的相框：邮票齿边 + 微微旋转 + 暖色阴影
+ * 齿边效果用 radial-gradient 模拟四边齿孔
  */
 export default function PhotoFrame({
   src,
@@ -23,6 +24,26 @@ export default function PhotoFrame({
 }: PhotoFrameProps) {
   const [loaded, setLoaded] = useState(false);
   const ref = useRef<HTMLImageElement>(null);
+
+  // 邮票齿边：四边均匀齿孔
+  const stampMaskStyle = {
+    // 上边齿孔
+    backgroundImage: [
+      "radial-gradient(circle 4px at 8px 0, transparent 3.5px, #fdf8ef 4px)",
+      "radial-gradient(circle 4px at calc(100% - 8px) 0, transparent 3.5px, #fdf8ef 4px)",
+      "radial-gradient(circle 4px at 0 8px, transparent 3.5px, #fdf8ef 4px)",
+      "radial-gradient(circle 4px at 100% 8px, transparent 3.5px, #fdf8ef 4px)",
+      "radial-gradient(circle 4px at 8px 100%, transparent 3.5px, #fdf8ef 4px)",
+      "radial-gradient(circle 4px at calc(100% - 8px) 100%, transparent 3.5px, #fdf8ef 4px)",
+      "radial-gradient(circle 4px at 0 calc(100% - 8px), transparent 3.5px, #fdf8ef 4px)",
+      "radial-gradient(circle 4px at 100% calc(100% - 8px), transparent 3.5px, #fdf8ef 4px)",
+      "radial-gradient(circle 4px at 8px 8px, transparent 3.5px, #fdf8ef 4px)",
+    ].join(", "),
+    backgroundSize: "16px 16px, 16px 16px, 16px 16px, 16px 16px, 16px 16px, 16px 16px, 16px 16px, 16px 16px, 16px 16px",
+    backgroundPosition: "top left, top right, left top, right top, bottom left, bottom right, left bottom, right bottom, top left",
+    backgroundRepeat: "repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat",
+  } as React.CSSProperties;
+
   return (
     <figure
       className={cn("relative inline-block", className)}
@@ -31,12 +52,7 @@ export default function PhotoFrame({
       {/* 邮票齿边底纸 */}
       <div
         className="relative bg-paper-50 p-3 pb-4 shadow-photo rounded-sm"
-        style={{
-          maskImage:
-            "radial-gradient(circle 5px at 5px 50%, transparent 4px, #000 5px), radial-gradient(circle 5px at calc(100% - 5px) 50%, transparent 4px, #000 5px), radial-gradient(circle 5px at 50% 5px, transparent 4px, #000 5px), radial-gradient(circle 5px at 50% calc(100% - 5px), transparent 4px, #000 5px)",
-          WebkitMaskComposite: "source-over",
-          maskComposite: "intersect",
-        }}
+        style={stampMaskStyle}
       >
         <div className="relative overflow-hidden bg-paper-200">
           {!loaded && (
@@ -49,8 +65,9 @@ export default function PhotoFrame({
             loading="lazy"
             onLoad={() => setLoaded(true)}
             className={cn(
-              "block w-full h-auto object-cover",
+              "block w-full h-auto object-cover transition-opacity duration-700",
               vintage && "filter-vintage",
+              loaded ? "animate-photo-reveal" : "opacity-0 blur-xl",
             )}
           />
           {/* 暖色光晕 */}
