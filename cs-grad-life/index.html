@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CS·研途 — 计算机研究生人生模拟器</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,700;1,400&family=ZCOOL+QingKe+HuangYou&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#050807;
+  --bg2:#0a0f0c;
+  --phos:#39ff6e;
+  --phos-dim:#1d7a3a;
+  --amber:#ffb000;
+  --red:#ff3b3b;
+  --cyan:#4be1e1;
+  --ink:#c9e8d0;
+  --line:#12351e;
+  --mono:'JetBrains Mono','Courier New',ui-monospace,monospace;
+  --disp:'ZCOOL QingKe HuangYou',var(--mono);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:var(--mono);
+  overflow:hidden;
+  font-size:14px;
+}
+/* ===== CRT 氛围层 ===== */
+.crt::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:90;
+  background:repeating-linear-gradient(0deg,rgba(0,0,0,.22) 0 1px,transparent 1px 3px);
+  mix-blend-mode:multiply;
+}
+.crt::after{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:91;
+  background:radial-gradient(ellipse at center,transparent 55%,rgba(0,0,0,.55) 100%);
+}
+.flicker{animation:flick 4.5s infinite steps(1)}
+@keyframes flick{
+  0%,100%{opacity:1} 92%{opacity:1} 93%{opacity:.72} 94%{opacity:1} 97%{opacity:.85} 98%{opacity:1}
+}
+#bg-glow{
+  position:fixed;inset:-20%;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(600px 400px at 15% 10%,rgba(57,255,110,.06),transparent 60%),
+    radial-gradient(700px 500px at 85% 90%,rgba(255,176,0,.05),transparent 60%);
+}
+/* ===== 布局 ===== */
+#app{position:relative;z-index:2;height:100vh;display:flex;flex-direction:column;max-width:1200px;margin:0 auto;padding:18px 22px}
+header{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid var(--line);padding-bottom:10px;flex:none}
+.logo{font-family:var(--disp);font-size:26px;letter-spacing:4px;color:var(--phos);text-shadow:0 0 12px rgba(57,255,110,.55)}
+.logo small{font-family:var(--mono);font-size:11px;color:var(--phos-dim);letter-spacing:2px;margin-left:10px}
+.clock{font-size:12px;color:var(--amber);letter-spacing:1px}
+main{flex:1;display:grid;grid-template-columns:300px 1fr;gap:18px;min-height:0;padding-top:14px}
+/* ===== 左:状态面板 ===== */
+.panel{
+  border:1px solid var(--line);background:linear-gradient(180deg,rgba(18,53,30,.18),rgba(5,8,7,.4));
+  padding:14px;overflow:auto;
+}
+.panel h2{font-size:12px;letter-spacing:3px;color:var(--phos-dim);margin-bottom:12px;font-weight:400}
+.stat{margin-bottom:13px}
+.stat .row{display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px}
+.stat .name{color:var(--ink);letter-spacing:1px}
+.stat .val{color:var(--phos);transition:color .3s}
+.bar{height:8px;border:1px solid var(--line);position:relative;background:rgba(0,0,0,.4)}
+.bar i{position:absolute;inset:1px auto 1px 1px;background:var(--phos);box-shadow:0 0 8px rgba(57,255,110,.5);transition:width .5s cubic-bezier(.2,.9,.2,1),background .3s}
+.bar.warn i{background:var(--amber);box-shadow:0 0 8px rgba(255,176,0,.5)}
+.bar.bad i{background:var(--red);box-shadow:0 0 8px rgba(255,59,59,.5)}
+.delta{position:absolute;right:0;top:-16px;font-size:11px;opacity:0;pointer-events:none}
+.delta.up{color:var(--phos);animation:floatUp 1.4s ease-out}
+.delta.dn{color:var(--red);animation:floatUp 1.4s ease-out}
+@keyframes floatUp{0%{opacity:0;transform:translateY(4px)}15%{opacity:1}100%{opacity:0;transform:translateY(-14px)}}
+.money-line{margin-top:16px;padding-top:12px;border-top:1px dashed var(--line);font-size:12px;display:flex;justify-content:space-between}
+.money-line b{color:var(--amber);font-weight:400;text-shadow:0 0 8px rgba(255,176,0,.4)}
+.flags{margin-top:12px;font-size:11px;color:var(--phos-dim);line-height:1.9;letter-spacing:1px}
+.flags .on{color:var(--cyan)}
+.progress-paper{margin-top:14px;font-size:11px;color:var(--phos-dim);line-height:1.8}
+/* ===== 右:终端 ===== */
+.term{display:flex;flex-direction:column;border:1px solid var(--line);background:rgba(3,6,4,.72);min-height:0}
+.term-bar{flex:none;display:flex;gap:8px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--line);font-size:11px;color:var(--phos-dim);letter-spacing:2px}
+.dot{width:9px;height:9px;border-radius:50%;border:1px solid var(--line)}
+.dot.r{background:rgba(255,59,59,.5)}.dot.a{background:rgba(255,176,0,.5)}.dot.g{background:rgba(57,255,110,.5)}
+#log{flex:1;overflow-y:auto;padding:14px 16px;line-height:1.75;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+#log::-webkit-scrollbar{width:6px}#log::-webkit-scrollbar-thumb{background:var(--line)}
+.ln{margin-bottom:2px;animation:lnIn .35s ease-out;word-break:break-all}
+@keyframes lnIn{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:none}}
+.ln.sys{color:var(--phos-dim)}
+.ln.sys::before{content:"[SYS] ";color:var(--line)}
+.ln.good{color:var(--phos)}
+.ln.good::before{content:"▲ ";color:var(--phos)}
+.ln.bad{color:var(--red)}
+.ln.bad::before{content:"▼ ";color:var(--red)}
+.ln.evt{color:var(--amber);text-shadow:0 0 6px rgba(255,176,0,.25)}
+.ln.evt::before{content:"◆ 事件 // ";}
+.ln.talk{color:var(--cyan)}
+.ln.talk::before{content:"» ";}
+.ln.big{color:var(--phos);font-weight:700;letter-spacing:1px;text-shadow:0 0 10px rgba(57,255,110,.6)}
+.ln.me{color:var(--ink)}
+.ln.me::before{content:"root@yanjiusheng:~$ ";color:var(--phos-dim)}
+.ln.hr{color:var(--line);letter-spacing:2px;overflow:hidden;white-space:nowrap}
+.cursor{display:inline-block;width:8px;height:14px;background:var(--phos);vertical-align:-2px;animation:blink 1s steps(1) infinite;margin-left:2px}
+@keyframes blink{50%{opacity:0}}
+/* ===== 操作区 ===== */
+.actions{flex:none;border-top:1px solid var(--line);padding:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.btn{
+  font-family:var(--mono);font-size:12.5px;letter-spacing:1px;cursor:pointer;
+  background:rgba(18,53,30,.25);color:var(--phos);border:1px solid var(--phos-dim);
+  padding:10px 8px;text-align:left;transition:all .18s;position:relative;overflow:hidden;
+}
+.btn small{display:block;color:var(--phos-dim);font-size:10.5px;margin-top:3px;letter-spacing:0}
+.btn:hover:not(:disabled){background:var(--phos);color:#02120a;box-shadow:0 0 16px rgba(57,255,110,.45);transform:translateY(-1px)}
+.btn:hover:not(:disabled) small{color:#033d1a}
+.btn:disabled{opacity:.28;cursor:not-allowed}
+.btn.choice{border-color:var(--amber);color:var(--amber)}
+.btn.choice small{color:#7a5510}
+.btn.choice:hover{background:var(--amber);color:#160e00;box-shadow:0 0 16px rgba(255,176,0,.45)}
+.btn.choice:hover small{color:#3d2a05}
+.week-ind{font-size:11px;color:var(--phos-dim);padding:6px 12px 0;letter-spacing:1px}
+/* ===== 覆盖屏(开始/结局) ===== */
+.overlay{
+  position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;
+  background:rgba(3,6,4,.9);backdrop-filter:blur(3px);
+}
+.card{
+  width:min(680px,92vw);border:1px solid var(--phos-dim);background:var(--bg2);
+  padding:38px 42px;box-shadow:0 0 60px rgba(57,255,110,.12),inset 0 0 40px rgba(0,0,0,.5);
+  animation:cardIn .6s cubic-bezier(.2,.9,.25,1);
+}
+@keyframes cardIn{from{opacity:0;transform:translateY(24px) scale(.97)}to{opacity:1;transform:none}}
+.card h1{font-family:var(--disp);font-size:44px;color:var(--phos);letter-spacing:6px;text-shadow:0 0 20px rgba(57,255,110,.6);margin-bottom:6px}
+.card h1.amber{color:var(--amber);text-shadow:0 0 20px rgba(255,176,0,.6)}
+.card h1.red{color:var(--red);text-shadow:0 0 20px rgba(255,59,59,.6)}
+.card .sub{color:var(--phos-dim);font-size:12px;letter-spacing:3px;margin-bottom:24px}
+.card p{font-size:13px;line-height:2;color:var(--ink);margin-bottom:8px}
+.card .dim{color:var(--phos-dim);font-size:12px}
+.adv-pick{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:22px 0}
+.adv-opt{border:1px solid var(--line);padding:14px 12px;cursor:pointer;transition:all .2s;text-align:center}
+.adv-opt:hover{border-color:var(--phos);background:rgba(57,255,110,.07);box-shadow:0 0 14px rgba(57,255,110,.2)}
+.adv-opt b{display:block;color:var(--phos);font-size:15px;letter-spacing:2px;margin-bottom:6px;font-weight:400}
+.adv-opt span{font-size:11px;color:var(--phos-dim);line-height:1.7;display:block}
+.big-btn{
+  font-family:var(--mono);display:block;width:100%;margin-top:20px;padding:14px;cursor:pointer;
+  background:transparent;border:1px solid var(--phos);color:var(--phos);font-size:15px;letter-spacing:6px;
+  transition:all .2s;
+}
+.big-btn:hover{background:var(--phos);color:#02120a;box-shadow:0 0 24px rgba(57,255,110,.5)}
+.ascii{color:var(--phos-dim);font-size:11px;line-height:1.3;white-space:pre;margin-bottom:18px;overflow:hidden}
+.ending-stats{margin:18px 0;padding:14px;border:1px dashed var(--line);font-size:12px;line-height:2;color:var(--ink)}
+.ending-stats b{color:var(--amber);font-weight:400}
+.hide{display:none!important}
+@media(max-width:860px){main{grid-template-columns:1fr;overflow:auto}.panel{max-height:260px}body{overflow:auto}}
+</style>
+</head>
+<body class="crt flicker">
+<div id="bg-glow"></div>
+
+<div id="app" class="hide">
+  <header>
+    <div class="logo">CS·研途<small>GRAD_SCHOOL.EXE</small></div>
+    <div class="clock" id="clock">研一上 · 第1周</div>
+  </header>
+  <main>
+    <aside class="panel">
+      <h2>// 状态监视器 STATUS</h2>
+      <div id="stats"></div>
+      <div class="money-line"><span>存款</span><b id="money">¥3000</b></div>
+      <div class="flags" id="flags"></div>
+      <div class="progress-paper" id="paper-info"></div>
+    </aside>
+    <section class="term">
+      <div class="term-bar">
+        <span class="dot r"></span><span class="dot a"></span><span class="dot g"></span>
+        &nbsp;LIFE_TERMINAL — /var/log/grad_school.log
+      </div>
+      <div class="week-ind" id="week-ind"></div>
+      <div id="log"></div>
+      <div class="actions" id="actions"></div>
+    </section>
+  </main>
+</div>
+
+<!-- 开始界面 -->
+<div class="overlay" id="start-screen">
+  <div class="card">
+    <div class="ascii">  ██████╗███████╗      ██╗   ██╗ █████╗ ███╗   ██╗████████╗██╗   ██╗
+ ██╔════╝██╔════╝      ╚██╗ ██╔╝██╔══██╗████╗  ██║╚══██╔══╝██║   ██║
+ ██║     ███████╗       ╚████╔╝ ███████║██╔██╗ ██║   ██║   ██║   ██║
+ ██║     ╚════██║        ╚██╔╝  ██╔══██║██║╚██╗██║   ██║   ██║   ██║
+ ╚██████╗███████║         ██║   ██║  ██║██║ ╚████║   ██║   ╚██████╔╝
+  ╚═════╝╚══════╝         ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═══╝   ╚═╝    ╚═════╝</div>
+    <h1>CS·研途</h1>
+    <div class="sub">计算机研究生人生模拟器 v3.7 — 三年研发 · 六个学期 · 二十四周/年</div>
+    <p>你,一名普通的计算机研究生,踏入了实验室的大门。</p>
+    <p>目标:在<b style="color:var(--phos)"> 3 年(6 学期 × 4 周)</b>内写出一篇论文并<b style="color:var(--phos)">成功发表</b>,顺利毕业。</p>
+    <p class="dim">每周你只能做一件事。健康归零会住院休学,心态归零会抑郁退学,负债过多会爆发网贷危机。毕业时,你的选择将决定你走向大厂、读博、考公,还是延毕……</p>
+    <p style="margin-top:16px;color:var(--amber)">首先,选择你的导师类型:</p>
+    <div class="adv-pick">
+      <div class="adv-opt" data-adv="fangyang">
+        <b>放养型导师</b>
+        <span>组会稀少,好感难降<br>但论文全靠自己悟<br>录用率 -10%</span>
+      </div>
+      <div class="adv-opt" data-adv="normal">
+        <b>普通导师</b>
+        <span>每月开一次组会<br>不 push 也不带你<br>标准难度</span>
+      </div>
+      <div class="adv-opt" data-adv="push">
+        <b>Push 狂导师</b>
+        <span>每两周查岗,好感消耗快<br>但汇报论文有加成<br>录用率 +10%</span>
+      </div>
+    </div>
+    <button class="big-btn" id="start-btn" disabled>▶ 先选择导师</button>
+  </div>
+</div>
+
+<!-- 结局界面 -->
+<div class="overlay hide" id="end-screen">
+  <div class="card">
+    <div class="sub" id="end-sub">// GAME_OVER</div>
+    <h1 id="end-title">延毕</h1>
+    <p id="end-desc" style="margin-top:14px"></p>
+    <div class="ending-stats" id="end-stats"></div>
+    <p class="dim" id="end-comment"></p>
+    <button class="big-btn" onclick="location.reload()">↻ 重启人生</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+   CS·研途 — 计算机研究生人生模拟器
+   ============================================================ */
+const $ = s => document.querySelector(s);
+const rnd = (a,b) => Math.floor(Math.random()*(b-a+1))+a;
+const chance = p => Math.random() < p;
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+const pick = arr => arr[rnd(0, arr.length-1)];
+
+const SEMS = ["研一上","研一下","研二上","研二下","研三上","研三下"];
+
+const ADVISORS = {
+  fangyang:{ name:"放养型导师", meetingEvery:0, favDrain:1, acceptBonus:-10, reportBonus:0 },
+  normal:  { name:"普通导师",   meetingEvery:4, favDrain:2, acceptBonus:0,  reportBonus:0 },
+  push:    { name:"Push狂导师", meetingEvery:2, favDrain:4, acceptBonus:10, reportBonus:4 },
+};
+
+let S = null;
+
+/* ---------------- 状态定义 ---------------- */
+const STAT_DEFS = [
+  { key:"paper", name:"论文进度", icon:"📄" },
+  { key:"skill", name:"代码能力", icon:"💻" },
+  { key:"hp",    name:"身体健康", icon:"❤" },
+  { key:"san",   name:"精神状态", icon:"🧠" },
+  { key:"fav",   name:"导师好感", icon:"👔" },
+];
+
+function newGame(advKey){
+  S = {
+    adv: advKey, advCfg: ADVISORS[advKey],
+    sem: 0, week: 1, turn: 0,
+    paper: 0, skill: 20, hp: 80, san: 70, fav: 50, money: 3000,
+    submitted:false, published:false, submitTurn:0,
+    love:false, interned:false, meetingSince:0, paperAtMeeting:0,
+    over:false, busy:false,
+    milestones:{},
+  };
+}
+
+/* ---------------- 日志 ---------------- */
+const logBox = () => $("#log");
+function log(text, cls="me"){
+  const d = document.createElement("div");
+  d.className = "ln " + cls;
+  d.textContent = text;
+  logBox().appendChild(d);
+  logBox().scrollTop = logBox().scrollHeight;
+}
+function logLines(lines, cls){ lines.forEach(t => log(t, cls)); }
+function hr(){ log("─".repeat(46), "hr"); }
+
+/* ---------------- 渲染 ---------------- */
+function statColor(v){ return v <= 20 ? "bad" : v <= 45 ? "warn" : ""; }
+function renderStats(deltas={}){
+  const box = $("#stats");
+  box.innerHTML = "";
+  for(const def of STAT_DEFS){
+    const v = Math.round(S[def.key]);
+    const wrap = document.createElement("div");
+    wrap.className = "stat";
+    wrap.innerHTML = `
+      <div class="row" style="position:relative">
+        <span class="name">${def.icon} ${def.name}</span>
+        <span class="val">${v}</span>
+        <span class="delta" data-k="${def.key}"></span>
+      </div>
+      <div class="bar ${statColor(v)}"><i style="width:${clamp(v,0,100)}%"></i></div>`;
+    box.appendChild(wrap);
+    const dv = deltas[def.key];
+    if(dv){
+      const el = wrap.querySelector(".delta");
+      el.textContent = (dv>0?"+":"") + dv;
+      el.classList.add(dv>0?"up":"dn");
+    }
+  }
+  $("#money").textContent = "¥" + S.money;
+  $("#money").style.color = S.money < 0 ? "var(--red)" : "";
+
+  const flags = [];
+  flags.push(`导师: <span class="on">${S.advCfg.name}</span>`);
+  if(S.love) flags.push(`状态: <span class="on">恋爱中 💕</span>`);
+  if(S.interned) flags.push(`实习: <span class="on">有大厂实习经历</span>`);
+  if(S.submitted) flags.push(`论文: <span class="on">审稿中…</span>`);
+  if(S.published) flags.push(`论文: <span class="on">已录用 ✔</span>`);
+  $("#flags").innerHTML = flags.join("<br>");
+
+  $("#paper-info").innerHTML =
+    `// 毕业条件<br>` +
+    `论文发表: ${S.published ? '<span style="color:var(--phos)">DONE</span>' : S.submitted ? 'REVIEWING' : S.paper >= 80 ? '可投稿!' : 'WIP ' + Math.round(S.paper) + '/80'}` +
+    `<br>导师好感 ≥ 30: ${S.fav >= 30 ? '<span style="color:var(--phos)">OK</span>' : '<span style="color:var(--red)">NO</span>'}`;
+
+  $("#clock").textContent = S.sem >= 6 ? "毕业季" : `${SEMS[S.sem]} · 第${S.week}周`;
+  $("#week-ind").textContent = `> uptime: year ${Math.min(3, Math.floor(S.sem/2)+1)} | week ${S.turn} / 24 | advisor: ${S.advCfg.name}`;
+}
+
+/* ---------------- 动作 ---------------- */
+function eff(obj){
+  const deltas = {};
+  for(const k in obj){
+    const before = S[k];
+    if(k === "money") S.money += obj[k];
+    else S[k] = clamp(S[k] + obj[k], 0, 100);
+    const d = Math.round(S[k] - before);
+    if(d) deltas[k] = d;
+  }
+  return deltas;
+}
+
+const ACTIONS = [
+  {
+    id:"paper", name:"肝论文", sub:"论文++ 心态-- 健康--",
+    can: () => !S.published,
+    run(){
+      let g = rnd(7,12) + (S.skill >= 60 ? 2 : 0);
+      if(S.san <= 20){ g = Math.round(g*0.5); log("你盯着空白文档发呆了四小时,效率极低……","sys"); }
+      const d = eff({paper:g, san:-rnd(3,6), hp:-rnd(2,5)});
+      log(pick([
+        `你在 Overleaf 上怒敲 LaTeX,实验跑了 200 个 epoch,论文 +${d.paper||g}`,
+        `改了三版 Related Work,调参调到天亮,论文 +${d.paper||g}`,
+        `消融实验终于显著了(p<0.05)!论文 +${d.paper||g}`,
+        `导师说的"再补一组实验"你补完了,论文 +${d.paper||g}`,
+      ]),"good");
+      if(S.paper >= 80 && !S.submitted && !S.published)
+        log("论文初稿完成!你可以选择【投稿论文】了。","big");
+    }
+  },
+  {
+    id:"code", name:"写项目/刷题", sub:"技能++ 论文+",
+    can: () => true,
+    run(){
+      const d = eff({skill:rnd(7,11), paper:rnd(1,3), san:-2});
+      log(pick([
+        `LeetCode 周赛上了 2000 分,代码能力 +${d.skill}`,
+        `给实验室重构了祖传屎山代码,代码能力 +${d.skill}`,
+        `开源项目收到第一个 star,代码能力 +${d.skill}`,
+        `刷完《CSAPP》第 7 章,感觉任督二脉通了,代码能力 +${d.skill}`,
+      ]),"good");
+      milestone("skill50", S.skill>=50, "代码能力突破 50:大厂笔试基本稳了。");
+      milestone("skill85", S.skill>=85, "代码能力突破 85:你是面试官口中的『很强的同学』。");
+    }
+  },
+  {
+    id:"rest", name:"睡觉/健身", sub:"健康++ 心态++",
+    can: () => true,
+    run(){
+      const d = eff({hp:rnd(10,15), san:rnd(6,10)});
+      log(pick([
+        `睡了个 10 小时的觉,感觉重生,健康 +${d.hp}`,
+        `操场跑了 5 公里,多巴胺回来了,健康 +${d.hp}`,
+        `去校医院理疗了颈椎,健康 +${d.hp}`,
+      ]),"good");
+    }
+  },
+  {
+    id:"slack", name:"摸鱼打游戏", sub:"心态+++ 论文-",
+    can: () => true,
+    run(){
+      const d = eff({san:rnd(9,14), paper:-rnd(1,3), hp:-2});
+      log(pick([
+        `打了八把排位,赢了七把,心态 +${d.san}`,
+        `在 B 站看了一下午猫,心态 +${d.san}`,
+        `和网友连麦通关了新游戏,心态 +${d.san}`,
+      ]),"good");
+      if(S.paper>0 && chance(.4)) log("快乐是有代价的,deadline 又近了一点。","bad");
+    }
+  },
+  {
+    id:"report", name:"找导师汇报", sub:"好感++ 论文+",
+    can: () => true,
+    run(){
+      let favGain = rnd(6,9) + S.advCfg.reportBonus;
+      if(S.paper - S.paperAtMeeting < 3){
+        favGain = Math.round(favGain/2);
+        log("导师翻着 PPT 皱眉:『这周进展怎么这么少?』","bad");
+      } else {
+        log(pick([
+          "导师满意地点头:『这个思路不错,继续保持。』",
+          "导师请你喝了杯咖啡,顺便画了个 Nature 子刊的饼。",
+          "导师把你的工作推荐给了一个合作组。",
+        ]),"good");
+      }
+      const d = eff({fav:favGain, paper:2, san:-3});
+      S.paperAtMeeting = S.paper;
+    }
+  },
+  {
+    id:"money", name:"接私活/实习", sub:"金钱+++ 技能+ 健康-",
+    can: () => true,
+    run(){
+      const pay = rnd(800, 1600);
+      const d = eff({skill:rnd(2,5), hp:-rnd(4,7), san:-3});
+      S.money += pay;
+      log(pick([
+        `帮一个创业公司写了两周小程序,进账 ¥${pay}`,
+        `线上辅导考研数据结构,进账 ¥${pay}`,
+        `参与师兄的外包项目,进账 ¥${pay}`,
+      ]),"good");
+      if(S.skill >= 60 && !S.interned && chance(.5)){
+        S.interned = true;
+        log("私活甲方对你刮目相看,发来大厂实习内推!(结局加成)","big");
+      }
+    }
+  },
+  {
+    id:"social", name:"社交/恋爱", sub:"心态++ 金钱--",
+    can: () => true,
+    run(){
+      const cost = rnd(150, 400);
+      S.money -= cost;
+      const d = eff({san:rnd(7,11), hp:2});
+      if(S.love){
+        log(`和对象去了江边看日落,花了 ¥${cost},心态 +${d.san}`,"good");
+      } else {
+        log(pick([
+          `和同学剧本杀到半夜,花了 ¥${cost},心态 +${d.san}`,
+          `参加了跨校联谊,加了三个微信,花了 ¥${cost},心态 +${d.san}`,
+          `去看了一场 livehouse,花了 ¥${cost},心态 +${d.san}`,
+        ]),"good");
+        if(chance(.25)){ S.love = true; log("你和联谊认识的 TA 在一起了!恋爱 buff:每周心态+1,偶尔触发约会开销。","big"); }
+      }
+    }
+  },
+  {
+    id:"submit", name:"📮 投稿论文", sub:"开启审稿流程",
+    can: () => S.paper >= 80 && !S.submitted && !S.published,
+    run(){
+      S.submitted = true;
+      S.submitTurn = S.turn;
+      log("你把论文投了出去。接下来就是漫长的、煎熬的等待……","big");
+      log("审稿周期:约 2 周。录用概率取决于代码能力、导师指导。","sys");
+    }
+  },
+];
+
+/* ---------------- 随机事件 ---------------- */
+const EVENTS = [
+  {
+    id:"meeting", w:0,
+    cond: () => S.advCfg.meetingEvery>0 && S.turn % S.advCfg.meetingEvery === 0,
+    run(){
+      const gain = S.paper - S.paperAtMeeting;
+      log("◆ 组会查岗!导师让每人汇报本周进展。","evt");
+      if(gain >= 6){
+        eff({fav:5, san:2});
+        log("你的进度让导师眼前一亮:『做得不错,可以冲个顶会。』","good");
+      } else if(gain >= 3){
+        eff({fav:1});
+        log("导师不置可否:『还行,下周多干点。』","sys");
+      } else {
+        eff({fav:-rnd(6,10), san:-rnd(5,9)});
+        log("导师脸色铁青:『你最近在干什么?实验室养你是让你摸鱼的?』","bad");
+      }
+      S.paperAtMeeting = S.paper;
+      return null;
+    }
+  },
+  {
+    id:"review", w:0,
+    cond: () => S.submitted && S.turn >= S.submitTurn + 2,
+    run(){
+      const prob = 35 + S.skill*0.35 + S.fav*0.2 + S.advCfg.acceptBonus;
+      log("◆ 审稿意见返回!你颤抖着点开邮件……","evt");
+      if(chance(prob/100)){
+        S.published = true; S.submitted = false; S.paper = 100;
+        eff({san:15, fav:8});
+        log(`ACCEPTED!!! 审稿人给了 minor revision!论文正式录用!`,"big");
+        log("导师罕见地露出了笑容:『可以,毕业稳了。』","good");
+      } else {
+        S.submitted = false;
+        const d = eff({san:-14, paper:-8});
+        log(`REJECTED. 审稿人 #2 说你的方法"缺乏创新性",心态 -14`,"bad");
+        log("没事,哪个科研人没被拒过稿?改改再投。","sys");
+      }
+      return null;
+    }
+  },
+  {
+    id:"server", w:3,
+    cond: () => true,
+    run(){
+      log("◆ 实验室 GPU 服务器突然宕机!你的实验数据还没备份!","evt");
+      if(S.skill >= 55){
+        eff({skill:3, fav:3});
+        log("你三下五除二恢复了 RAID 阵列,全实验室膜拜,代码能力 +3","good");
+        return null;
+      }
+      return {
+        text:"怎么办?",
+        choices:[
+          { t:"通宵抢救数据", s:"论文-6 健康-8", fn(){ const d=eff({paper:-rnd(4,8),hp:-8}); log("熬了一个通宵,救回了一半的数据……","bad"); } },
+          { t:"摆烂,明天再说", s:"论文-12", fn(){ const d=eff({paper:-rnd(10,14)}); log("数据彻底丢失,两周白干。","bad"); } },
+        ]
+      };
+    }
+  },
+  {
+    id:"roommate", w:3,
+    cond: () => true,
+    run(){
+      return {
+        text:"◆ 室友拉你通宵开黑,嗓门大到整层楼都在震。",
+        choices:[
+          { t:"加入他们!", s:"心态+10 论文-3 健康-5", fn(){ const d=eff({san:10,paper:-3,hp:-5}); log("五连胜!快乐就完事了。","good"); } },
+          { t:"戴耳塞继续肝", s:"论文+4 心态-5", fn(){ const d=eff({paper:4,san:-5}); log("你在枪林弹雨的背景音里写完了方法章节。","good"); } },
+        ]
+      };
+    }
+  },
+  {
+    id:"blind_date", w:2,
+    cond: () => S.sem >= 2 && !S.love,
+    run(){
+      return {
+        text:"◆ 你妈打来电话,给你安排了一场相亲。",
+        choices:[
+          { t:"去见见吧", s:"金钱-300 未知…", fn(){
+            S.money -= 300;
+            if(chance(.5)){ S.love = true; eff({san:12}); log("对方是隔壁医学院的研究生,你们一见钟情!恋爱 buff 开启!","big"); }
+            else { eff({san:-5}); log("对方问你毕业能挣多少,你说一个月补助 600。场面一度尴尬。","bad"); }
+          } },
+          { t:"论文要紧,拒绝", s:"心态-3", fn(){ eff({san:-3}); log("你妈在电话里叹了口气:『隔壁王阿姨的儿子都二胎了。』","sys"); } },
+        ]
+      };
+    }
+  },
+  {
+    id:"lover", w:3,
+    cond: () => S.love,
+    run(){
+      return {
+        text:"◆ 对象抱怨你最近总泡实验室,闹情绪了。",
+        choices:[
+          { t:"请假陪 TA 逛街", s:"金钱-400 心态+8", fn(){ S.money -= 400; eff({san:8}); log("TA 破涕为笑,你感觉又充满了电。","good"); } },
+          { t:"装死不回消息", s:"可能分手…", fn(){
+            if(chance(.5)){ S.love = false; eff({san:-12}); log("对方发来『我们分手吧』,你盯着屏幕愣了很久。","bad"); }
+            else { eff({san:-4}); log("冷战三天后 TA 原谅了你,但你心里过意不去。","sys"); }
+          } },
+        ]
+      };
+    }
+  },
+  {
+    id:"stipend", w:2, cond: () => true,
+    run(){ S.money += 800; log("◆ 学校发了一学期一次的研究生补助,¥800 到账。","evt"); log("蚊子腿也是肉。","sys"); return null; }
+  },
+  {
+    id:"inspire", w:2, cond: () => !S.published,
+    run(){ const d=eff({paper:rnd(6,10), san:3}); log("◆ 洗澡时灵光乍现!你想到了一个绝妙的 trick!","evt"); log(`冲回宿舍立刻实验,work了!论文 +${d.paper}`,"good"); return null; }
+  },
+  {
+    id:"hair", w:2, cond: () => S.hp < 60,
+    run(){ eff({hp:-4, san:-4}); log("◆ 洗头时掉了一大把头发。镜子里的发际线又后退了 1mm。","evt"); return null; }
+  },
+  {
+    id:"gpu_sale", w:2, cond: () => S.money >= 2600,
+    run(){
+      return {
+        text:"◆ 显卡大降价!学长出一张二手 RTX 4090,只要 ¥2500。",
+        choices:[
+          { t:"咬牙拿下!", s:"金钱-2500 技能+8 论文+5", fn(){ S.money-=2500; eff({skill:8,paper:5}); log("本地跑实验再也不排队了,效率起飞!","good"); } },
+          { t:"忍住", s:"心态-2", fn(){ eff({san:-2}); log("你把购物车里的显卡删了,心里空落落的。","sys"); } },
+        ]
+      };
+    }
+  },
+  {
+    id:"conf", w:2, cond: () => S.fav >= 55 && S.money >= 1600,
+    run(){
+      return {
+        text:"◆ 导师问你要不要去参加学术会议(自费 ¥1500)。",
+        choices:[
+          { t:"去见见世面", s:"金钱-1500 好感+8 技能+5", fn(){ S.money-=1500; eff({fav:8,skill:5,san:6}); log("会议上你和大佬谈笑风生,还要到了微信。","good"); } },
+          { t:"穷,不去", s:"好感-4", fn(){ eff({fav:-4}); log("导师撇了撇嘴,没再说什么。","bad"); } },
+        ]
+      };
+    }
+  },
+  {
+    id:"wedding", w:2, cond: () => S.sem >= 2,
+    run(){ S.money -= 500; eff({san:-5}); log("◆ 本科室友结婚了,份子钱 ¥500。婚宴上大家都在聊房子和编制。","evt"); return null; }
+  },
+  {
+    id:"canteen", w:2, cond: () => true,
+    run(){ eff({hp:-4, san:-3}); log("◆ 食堂新窗口的『草莓炒月饼』让你拉了两天肚子。","evt"); return null; }
+  },
+  {
+    id:"bluescreen", w:2, cond: () => true,
+    run(){
+      return {
+        text:"◆ 你的电脑蓝屏了,论文环境全没了。",
+        choices:[
+          { t:"自己重装系统", s:"技能+3 论文-4", fn(){ eff({skill:3,paper:-4}); log("折腾一天装好了,顺便学会了 Docker 备份环境。","good"); } },
+          { t:"花钱送修", s:"金钱-400 论文-1", fn(){ S.money-=400; eff({paper:-1}); log("维修小哥半天搞定,就是有点贵。","sys"); } },
+        ]
+      };
+    }
+  },
+  {
+    id:"scholarship", w:2, cond: () => S.skill >= 50 && S.sem % 2 === 1,
+    run(){
+      log("◆ 奖学金评定开始,你被提名答辩!","evt");
+      if(chance(S.skill/120)){
+        S.money += 3000; eff({san:8, fav:5});
+        log("你凭借过硬的技术拿下奖学金 ¥3000!请全实验室喝了奶茶。","big");
+      } else {
+        eff({san:-5});
+        log("败给了一个发了顶会的大佬。虽败犹荣。","sys");
+      }
+      return null;
+    }
+  },
+  {
+    id:"night", w:3, cond: () => S.san < 40,
+    run(){ eff({san:-6, hp:-3}); log("◆ 凌晨三点,你刷着『读研到底值不值』的帖子,陷入存在主义危机。","evt"); return null; }
+  },
+  {
+    id:"sports", w:2, cond: () => true,
+    run(){ eff({hp:5, san:4}); log("◆ 被同学拉去打了一场羽毛球,出了一身汗,神清气爽。","evt"); return null; }
+  },
+  {
+    id:"pie", w:2, cond: () => true,
+    run(){ eff({fav:2, san:-2}); log("◆ 导师在群里发:『咱们这个方向,好好做,明年冲 Nature。』你默默回了个『收到』。","evt"); return null; }
+  },
+  {
+    id:"deadline_oss", w:2, cond: () => true,
+    run(){
+      return {
+        text:"◆ 师兄的外包项目 deadline 提前,喊你救急(有偿 ¥600)。",
+        choices:[
+          { t:"帮忙!", s:"金钱+600 技能+4 健康-6", fn(){ S.money+=600; eff({skill:4,hp:-6}); log("连肝两晚交付,师兄请你吃了顿火锅。","good"); } },
+          { t:"婉拒", s:"心态+2", fn(){ eff({san:2}); log("你学会了说不,这也是一种成长。","sys"); } },
+        ]
+      };
+    }
+  },
+];
+
+/* ---------------- 里程碑 ---------------- */
+function milestone(key, cond, text){
+  if(cond && !S.milestones[key]){ S.milestones[key]=1; log("★ " + text, "big"); }
+}
+
+/* ---------------- 回合流程 ---------------- */
+function renderActions(){
+  const box = $("#actions");
+  box.innerHTML = "";
+  for(const a of ACTIONS){
+    if(a.id === "submit" && !(S.paper>=80 && !S.submitted && !S.published)) continue;
+    const b = document.createElement("button");
+    b.className = "btn";
+    b.innerHTML = `${a.name}<small>${a.sub}</small>`;
+    b.disabled = !a.can();
+    b.onclick = () => doTurn(a);
+    box.appendChild(b);
+  }
+}
+
+function renderChoices(evt){
+  const box = $("#actions");
+  box.innerHTML = "";
+  evt.choices.forEach(c => {
+    const b = document.createElement("button");
+    b.className = "btn choice";
+    b.innerHTML = `${c.t}<small>${c.s}</small>`;
+    b.onclick = () => { c.fn(); afterEvent(); };
+    box.appendChild(b);
+  });
+}
+
+function doTurn(action){
+  if(S.busy || S.over) return;
+  S.busy = true;
+
+  hr();
+  log(`week ${S.turn+1} ▸ 执行: ${action.name}`, "sys");
+  action.run();
+
+  // 恋爱buff
+  if(S.love) eff({san:1});
+  // 每月开销
+  S.money -= 400;
+  // 导师好感自然衰减
+  eff({fav: -S.advCfg.favDrain});
+
+  // 审稿返回优先,其次其他事件
+  maybeEvent();
+}
+
+function maybeEvent(){
+  // 审稿 & 组会属于确定性事件,必触发
+  const fixed = EVENTS.filter(e => e.w === 0 && e.cond());
+  if(fixed.length){ fireEvent(fixed[0]); return; }
+  if(chance(0.45)){
+    const pool = EVENTS.filter(e => e.w > 0 && e.cond());
+    if(pool.length){
+      const total = pool.reduce((s,e)=>s+e.w,0);
+      let r = Math.random()*total;
+      for(const e of pool){ r -= e.w; if(r<=0){ fireEvent(e); return; } }
+    }
+  }
+  afterEvent();
+}
+
+function fireEvent(e){
+  const choiceEvt = e.run();
+  if(choiceEvt){
+    log(choiceEvt.text, "evt");
+    renderStats();
+    renderChoices(choiceEvt);
+    return; // 等待玩家选择 → afterEvent
+  }
+  afterEvent();
+}
+
+function afterEvent(){
+  renderStats();
+  if(checkGameOver()) return;
+  advanceTime();
+  renderStats();
+  renderActions();
+  S.busy = false;
+}
+
+function advanceTime(){
+  S.week++;
+  S.turn++;
+  if(S.week > 4){
+    S.week = 1; S.sem++;
+    if(S.sem >= 6){ endGame(); return; }
+    hr();
+    log(`══ 新学期开始:${SEMS[S.sem]} ══`, "big");
+    logLines(semFlavor(S.sem), "sys");
+  }
+  milestone("paper50", S.paper>=50 && !S.published, "论文过半!黎明前的黑暗。");
+  milestone("fav80", S.fav>=80, "导师视你如关门弟子。");
+}
+
+function semFlavor(sem){
+  return [
+    [],
+    ["研一下:新鲜感褪去,真正的科研开始了。"],
+    ["研二上:身边开始有人发论文了,你感到了压力。"],
+    ["研二下:秋招的气息开始弥漫,实验室人心浮动。"],
+    ["研三上:秋招!考公!答辩!每个人都行色匆匆。"],
+    ["研三下:最后半年。你的故事即将写下结局。"],
+  ][sem] || [];
+}
+
+/* ---------------- 结局判定 ---------------- */
+function checkGameOver(){
+  if(S.hp <= 0){ gameOver("red","住院休学",
+    "长期熬夜 + 食堂黑暗料理,你的身体终于罢工了。体检报告上 17 项异常,医生勒令你住院休养。",
+    "留得青山在,不怕没柴烧。论文没了可以再写,命只有一条。"); return true; }
+  if(S.san <= 0){ gameOver("red","抑郁退学",
+    "某个凌晨四点,你删除了所有实验代码,给导师发了一封『世界那么大,我想去看看』,退出了所有课题组群聊。",
+    "研究生只是人生的一种选项,不是人生的全部。放过自己,也是一种勇气。"); return true; }
+  if(S.money <= -2000){ gameOver("red","网贷危机",
+    "信用卡、花呗、白条……雪球越滚越大。催款电话打到了你导师那里,你被迫休学打工还债。",
+    "消费主义是科研路上最大的敌人。"); return true; }
+  return false;
+}
+
+function endGame(){
+  const pub = S.published;
+  if(!pub){
+    gameOver("amber","延毕",
+      `三年期满,你的论文${S.paper>=80 ? "还卡在审稿流程里" : "进度停在了 " + Math.round(S.paper) + "%"}。你在延期申请表上签了字,目送同届同学拍毕业照。`,
+      "延毕不是终点,只是人生多了一学期。但食堂的草莓炒月饼你还要再忍半年。");
+  }
+  else if(S.fav < 30){
+    gameOver("amber","惊险毕业",
+      "论文虽然录用了,但导师对你积怨已久,答辩时被百般刁难。最后靠着盲审专家的救命分数勉强通过。",
+      "毕业了,但导师在毕业照上全程黑着脸。下次记得多汇报。");
+  }
+  else if(S.skill >= 85){
+    gameOver("","大厂 SSP Offer",
+      `论文 + 过硬的技术,让你在秋招乱杀。HR 打来电话:「同学,我们给你申请了 SSP,总包 55w,签字费另算。」`,
+      S.interned ? "那段私活攒下的实习经历,成了简历上最亮的一笔。" : "你成了实验室传说,导师逢人便夸。");
+  }
+  else if(S.fav >= 75){
+    gameOver("","直博深造",
+      "导师拍着你的肩膀:『留下来读博吧,我送你出国联培。』你看了看镜子里日渐稀疏的头发,郑重地点了点头。",
+      "学术这条路,道阻且长。但总有人要为人类拓展认知的边界。");
+  }
+  else if(S.skill >= 60){
+    gameOver("","上岸互联网",
+      "一篇论文 + 还行的技术,你拿到某中厂 offer,总包 30w。毕业典礼那天,你把学位帽抛得很高。",
+      "平凡的结局,却是大多数研究生真实而体面的落幕。");
+  }
+  else{
+    gameOver("","考公上岸",
+      "技术平平的你选择了宇宙的尽头——选调生。笔试面试一路过关,你考上了老家市直单位。",
+      "从此朝九晚五,再也不用改审稿意见了。你妈终于露出了笑容。");
+  }
+}
+
+function gameOver(color, title, desc, comment){
+  S.over = true;
+  $("#end-screen").classList.remove("hide");
+  const t = $("#end-title");
+  t.className = color;
+  t.textContent = title;
+  $("#end-sub").textContent = `// ENDING: ${title} · 存活 ${S.turn} 周 · 导师:${S.advCfg.name}`;
+  $("#end-desc").textContent = desc;
+  $("#end-comment").textContent = "// 评语: " + comment;
+  $("#end-stats").innerHTML =
+    `论文进度 <b>${Math.round(S.paper)}${S.published?"(已录用)":""}</b> · 代码能力 <b>${Math.round(S.skill)}</b> · ` +
+    `健康 <b>${Math.round(S.hp)}</b> · 心态 <b>${Math.round(S.san)}</b> · 导师好感 <b>${Math.round(S.fav)}</b><br>` +
+    `存款 <b>¥${S.money}</b> · ${S.love?"收获了爱情 💕":"孑然一身"} · ${S.interned?"有大厂实习经历":"无实习经历"}`;
+  hr();
+  log(`══ GAME OVER:${title} ══`, "big");
+}
+
+/* ---------------- 启动 ---------------- */
+let pickedAdv = null;
+document.querySelectorAll(".adv-opt").forEach(el => {
+  el.onclick = () => {
+    document.querySelectorAll(".adv-opt").forEach(x => x.style.borderColor = "");
+    el.style.borderColor = "var(--phos)";
+    el.style.boxShadow = "0 0 14px rgba(57,255,110,.3)";
+    pickedAdv = el.dataset.adv;
+    const btn = $("#start-btn");
+    btn.disabled = false;
+    btn.textContent = "▶ 开始读研";
+  };
+});
+$("#start-btn").onclick = () => {
+  if(!pickedAdv) return;
+  newGame(pickedAdv);
+  $("#start-screen").classList.add("hide");
+  $("#app").classList.remove("hide");
+  log("BOOTING LIFE_TERMINAL v3.7 ...", "sys");
+  log(`导师类型:${S.advCfg.name}`, "sys");
+  log("══ 研一上,开学第一天 ══", "big");
+  log("你拖着行李箱站在实验室门口,门上贴着一张 A4 纸:『不积跬步,无以至 SCI』。");
+  log("导师拍拍你:『年轻人,好好干,三年很快就过去了。』","talk");
+  log("每周选择一个行动。活下去,发论文,毕业。祝你好运。","sys");
+  renderStats();
+  renderActions();
+};
+</script>
+</body>
+</html>
